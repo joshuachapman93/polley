@@ -1,0 +1,217 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta http-equiv="X-UA-Compatible" content="IE=edge">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>POLL</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Open+Sans:wght@300;400;500;600;700;800&display=swap"
+        rel="stylesheet">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.1.1/css/all.min.css"
+        integrity="sha512-KfkfwYDsLkIlwQp6LFnl8zNdLGxu9YAA1QvwINks4PhcElQSvqcyVLLD9aMhXd13uQjoXtEKNosOWaZqXgel0g=="
+        crossorigin="anonymous" referrerpolicy="no-referrer" />
+    <style>
+        * {
+            box-sizing: border-box;
+            padding: 0;
+            margin: 0;
+            font-family: 'Open Sans', sans-serif;
+            transition-duration: 300ms;
+
+        }
+
+        body {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            min-height: 100vh;
+            background: #0f172a;
+            color: white;
+            padding: 8px;
+        }
+
+        main {
+            max-width: 800px;
+            margin: 0 auto;
+            display: flex;
+            flex: 1;
+            flex-direction: column;
+            align-items: center;
+            gap: 20px;
+        }
+
+        main>h1 {
+            font-weight: 800;
+            /* -webkit-text-stroke: 1.5px cyan;
+            -webkit-text-fill-color: transparent; */
+            color: cyan;
+            text-shadow: 0 0 4px skyblue;
+            text-align: center;
+            user-select: none;
+            margin: 32px 0;
+            text-transform: uppercase;
+            border-bottom: 1px solid cyan;
+        }
+
+        #options {
+            display: flex;
+            flex-direction: column;
+            gap: 8px;
+            width: 100%;
+        }
+
+
+
+        ul li {
+            text-transform: capitalize;
+            list-style: none;
+            user-select: none;
+            cursor: pointer;
+            width: 100%;
+            border: 1px solid transparent;
+            padding: 8px;
+            max-width: 100% !important;
+            min-width: fit-content;
+        }
+
+        ul li i {
+            padding: 0 6px 0 0;
+            color: white !important;
+        }
+
+        ul li:hover {
+            color: greenyellow;
+            background: black;
+            border-left: 1px solid greenyellow
+        }
+
+        .lins:nth-child(3n) {
+            background: linear-gradient(to right, #00C9FF, #92FE9D);
+        }
+
+        .lins:nth-child(3n+1) {
+            background: linear-gradient(to right, #fc00ff, #00dbde);
+        }
+
+        .lins:nth-child(3n+2) {
+            background: linear-gradient(to right, #D38312, #A83279);
+        }
+
+        #url {
+            color: greenyellow;
+            text-align: center;
+            padding: 2px 4px;
+            margin: 4px auto;
+            font-size: 0.8rem;
+        }
+
+        footer {
+            display: grid;
+            place-items: center;
+            cursor: pointer;
+        }
+
+        footer:hover {
+            color: greenyellow;
+        }
+
+        a {
+            text-decoration: none;
+            color: inherit;
+
+        }
+    </style>
+</head>
+
+<body>
+    <main>
+        <h1></h1>
+        <ul id="options"></ul>
+    </main>
+    <div id="url"> </div>
+    <footer><a href="/"><i class="fa-solid fa-house"></i></a></footer>
+
+    <script>
+        const id = window.location.pathname.replaceAll('/', '')
+        console.log(id)
+        const currUrl = window.location.href
+        const urlDiv = document.getElementById('url')
+        urlDiv.innerText = currUrl
+        const question = document.querySelector('main > h1')
+        const optionsList = document.querySelector('ul')
+        let optionsFromServer = []
+        async function onLoad() {
+            const idsRes = await fetch('/ids')
+            const { ids } = await idsRes.json()
+            if (!ids.includes(id)) {
+                window.location.href = '/'
+            }
+
+            const res = await fetch('/data/' + id)
+            const { data } = await res.json()
+            optionsFromServer = data.options
+            question.innerText = data.question + (data.question.includes('?') ? '' : '?')
+
+            let newInnerListHTML = ''
+            Object.keys(data.options).forEach((option, index) => {
+                newInnerListHTML += `<li id="${option}"><i class="fa-solid fa-atom"></i>${option}</li>`
+            })
+            optionsList.innerHTML = newInnerListHTML
+
+            const optionsLi = document.querySelectorAll('li')
+            optionsLi.forEach(option => {
+                option.addEventListener('click', pplClick)
+            })
+        }
+        onLoad()
+
+        async function pplClick(index) {
+            const selected = index.target.id
+            const maxNumberOfVotes = Math.max(...Object.values(optionsFromServer))
+
+            const optionsLi = document.querySelectorAll('li')
+            optionsLi.forEach(val => {
+                console.log(val)
+                const option = val.id //send this off to server
+                val.removeEventListener('click', pplClick)
+
+                val.classList.add('lins')
+
+                val.style.color = '#0f172a'
+                if (maxNumberOfVotes !== 0) {
+                    if (selected == option) {
+                        val.style.width = `${((optionsFromServer[option] + 1) / maxNumberOfVotes) * 100}%`
+                    } else {
+                        val.style.width = `${(optionsFromServer[option] / maxNumberOfVotes) * 100}%`
+                    }
+
+                } else {
+                    if (selected == option) {
+                        val.style.width = '100%'
+                    } else {
+                        val.style.width = '0%'
+                    }
+                }
+            })
+
+            //send result to server
+            const res = await fetch('/vote', {
+                method: 'POST',
+                headers: {
+                    'Content-type': 'application/json'
+                },
+                body: JSON.stringify({
+                    id,
+                    vote: selected
+                })
+            })
+        }
+
+
+    </script>
+</body>
+
+</html>
